@@ -1,5 +1,5 @@
-
-from poker.card import Card
-from poker.deck import Deck
-from poker.game import Game
-from poker.player import Player
+from .card import Card
+from .deck import Deck
+from .game import Game
+from .seat import Seat
+from .player import Player

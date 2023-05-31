@@ -1,10 +1,6 @@
 class Player:
-    def __init__(self, name: str, chips: int=0):
-        self.name = name
-        self.chips = chips
-        
-        self.active = False
-        self.hand = None
+    def __init__(self, username: str):
+        self.username = username
 
     def __repr__(self):
-        return f"Player({self.name}, {self.chips}, {self.hand})"
+        return f"Player({self.username})"

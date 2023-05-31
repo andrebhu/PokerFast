@@ -8,7 +8,7 @@ class Deck:
     def __init__(self, _shuffle=False):
         self.cards = []
         
-        for suit in ["s", "h", "c", "d"]:
+        for suit in ['s', 'h', 'c', 'd']:
             for value in range(2, 15):
                 self.cards.append(Card(value, suit))
         
@@ -18,7 +18,7 @@ class Deck:
     def shuffle_cards(self):
         shuffle(self.cards)
 
-    def deal(self, n: int):
+    def deal(self, n: int) -> list:
         return [self.cards.pop() for _ in range(n)]
     
     def __repr__(self):
