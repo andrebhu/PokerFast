@@ -3,21 +3,25 @@ from app.poker import *
 g = Game()
 
 # Add players
-g.add_player("bobby")
-g.add_player("jimmy")
-g.add_player("steve")
-g.add_player("joe")
-g.add_player("albert")
-g.add_player("eddie")
-g.add_player("bryan")
-g.add_player("james")
-g.add_player("pizza")
+g.add_player("p1")
+g.add_player("p2")
+g.add_player("p3")
+g.add_player("p4")
+
 
 # Add players to seats
-g.add_player_to_seat("bobby", 1000, 0)
-g.add_player_to_seat("jimmy", 1000, 1)
-g.add_player_to_seat("steve", 1000, 2)
-g.add_player_to_seat("bryan", 1000, 3)
+g.add_player_to_seat("p1", 100, 0) # dealer
+g.add_player_to_seat("p2", 100, 1) # sb
+g.add_player_to_seat("p3", 100, 2) # bb
+g.add_player_to_seat("p4", 100, 3) # utg
 
-# g.shuffle_seats()
-g.start_round()
+print(g)
+
+g.start_hand()
+print(f"Dealer: {g.dealer_seat}")
+
+g.fold("p4")
+g.fold("p1")
+g.fold("p2")
+
+

@@ -13,12 +13,15 @@ class Game:
 
     def __init__(self, blinds: list = [1, 2]):
         # Round variables
-        self.action_seat = None
+        self.current_action_seat = None
+        self.last_action_seat = None
+        self.community_cards = []
+        self.current_bet = 0
+
+        # Hand variables
         self.active_players = 0
         self.deck = Deck(_shuffle=True)
         self.dealer_seat = None
-        self.community_cards = []
-        self.current_bet = 0
         self.pot = 0
         self.seats = [Seat() for _ in range(self.MAX_PLAYERS)]
         self.seats_cycle = cycle(self.seats)
@@ -29,13 +32,35 @@ class Game:
         self.players = []
         self.state = "waiting"
 
+    def __str__(self):
+        s = ""
+        s += f"State: {self.state}\n"
+        s += f"Active players: {self.active_players}\n"
+
+        s += f"Players:\n"
+        for p in self.players:
+            s += f"\t{p}\n"
+
+        s += f"Seats:\n"
+        for seat in self.seats:
+            s += f"\t{seat}\n"
+
+        s += f"Dealer: {self.dealer_seat}\n"
+        s += f"Current action seat: {self.current_action_seat}\n"
+        s += f"Last action seat: {self.last_action_seat}\n"
+        s += f"Current bet: {self.current_bet}\n"
+        s += f"Pot: {self.pot}\n"
+        s += f"Community cards: {self.community_cards}\n"
+        return s
+
     def get_player(self, username):
-        """Get player"""
+        """Helper function to get player"""
         for i in range(len(self.players)):
             if self.players[i].username == username:
                 return self.players[i]
 
     def add_player(self, username):
+        """Add a player to the game"""
         if self.get_player(username):
             raise Exception("Username already exists")
 
@@ -43,6 +68,7 @@ class Game:
         self.players.append(p)
 
     def shuffle_seats(self):
+        """Shuffle the game's seats"""
         shuffle(self.seats)
 
     def add_player_to_seat(self, username, chips, i):
@@ -60,10 +86,7 @@ class Game:
         else:
             raise Exception("Player not found")
 
-    # TODO: Write function to automatically add all unseated players to
-    # available seats
-
-    def get_next_active_player(self):
+    def get_next_active_seat(self):
         """Get the next active player that is not folded"""
         seat = next(self.seats_cycle)
 
@@ -73,16 +96,68 @@ class Game:
         return seat
 
     def pay(self, seat, amount):
-        """Pay chips to pot"""
+        """Helper function to pay chips to pot"""
         if amount > seat.chips:
             # TODO: Handle all in and side pots
             raise Exception("Not enough chips")
 
+        print(f"{seat.player.username} pays {amount} chips")
         seat.chips -= amount
         self.pot += amount
 
-    # Round logic
-    def start_round(self):
+    # Controls the game's flow between rounds and player actions
+    # Every player action should call update
+    def update(self):
+        """Update game state"""
+
+        # TODO: Given last and current action seats, does this still need to be
+        # checked? It also means the last person folded...?
+        # End of hand because everyone else folded
+        if self.active_players <= 1:
+            winner_seat = self.get_next_active_seat()
+
+            # Give winner the pot
+            winner_seat.chips += self.pot
+            self.pot = 0
+
+            print("Everyone has folded!")
+            print("Winner: ", winner_seat.player)
+
+            self.end_hand()
+            return
+        
+
+
+        # Checking end of round
+        if self.current_action_seat == self.last_action_seat:
+            print("Reached the end of the round!")
+            if self.state == "preflop":
+                print("Ending preflop, dealing flop...") # debugging
+                self.current_bet = 0
+                self.community_cards.append(self.deck.deal(3))
+                self.state = "flop"
+
+            elif self.state == "flop":
+                print("Ending flop, dealing turn...") # debugging
+                self.current_bet = 0
+                self.community_cards.append(self.deck.deal(1))
+                self.state = "turn"
+
+            elif self.state == "turn":
+                print("Ending turn, dealing river...") # debugging
+                self.current_bet = 0
+                self.community_cards.append(self.deck.deal(1))
+                self.state = "river"
+
+            elif self.state == "river":
+                print("Ending river, showdown...") # debugging
+                self.state = "showdown"
+            return
+
+        # Update action seat
+        self.current_action_seat = self.get_next_active_seat()
+
+    def start_hand(self):
         """Start round"""
 
         if self.state != "waiting":
@@ -99,62 +174,141 @@ class Game:
                 seat.cards = self.deck.deal(2)
 
         # Assign dealer as first active player
-        self.dealer_seat = self.get_next_active_player()
+        self.dealer_seat = self.get_next_active_seat()
 
         # In a heads-up game, the dealer is the small blind and is first to act
+        small_blind, big_blind = self.blinds[0], self.blinds[1]
         if self.active_players == 2:
             # Pay small blind
-            self.pay(self.dealer_seat, self.blinds[0])
+            self.pay(self.dealer_seat, small_blind)
+            self.dealer_seat.last_bet = small_blind
 
             # Pay big blind
-            self.temp_player = self.get_next_active_player()
-            self.pay(self.temp_player, self.blinds[1])
+            temp_player = self.get_next_active_seat()
+            self.pay(temp_player, big_blind)
+            temp_player.last_bet = big_blind
+
+            # TODO: Add logic if seat can't pay blinds
+            self.current_bet = big_blind
 
             # Dealer is first to act
-            self.action_seat = self.dealer_seat
+            self.current_action_seat = self.dealer_seat
+
+            # Big blind is last to act
+            self.last_action_seat = temp_player
 
         # In a game with more than two players, the player to the left of the
         # dealer is the small blind
         else:
             # Pay small blind
-            self.action_seat = self.get_next_active_player()
-            self.pay(self.action_seat, self.blinds[0])
+            self.current_action_seat = self.get_next_active_seat()
+            self.pay(self.current_action_seat, small_blind)
+            self.current_action_seat.last_bet = small_blind
 
             # Pay big blind
-            self.action_seat = self.get_next_active_player()
-            self.pay(self.action_seat, self.blinds[1])
+            self.current_action_seat = self.get_next_active_seat()
+            self.pay(self.current_action_seat, big_blind)
+            self.current_action_seat.last_bet = big_blind
 
-            self.action_seat = self.get_next_active_player()
+            # TODO: Add logic if seat can't pay blinds
+            self.current_bet = big_blind
+
+            # Big blind is last to act
+            self.last_action_seat = self.current_action_seat
+
+            # Assign UTG as first to act
+            self.current_action_seat = self.get_next_active_seat()
 
         self.state = "preflop"
 
-    # Controls the game's flow between rounds and player actions
-    def update(self):
-        """Update game state"""
+    def end_hand(self):
+        """End hand"""
+        self.community_cards = []
+        self.current_bet = 0
+        self.pot = 0
 
-        if self.active_players <= 1:
-            # TODO: End of round
-            self.state = "showdown"
-            return
+        # Reset seats for next hand except for player and chips
+        for seat in self.seats:
+            seat.last_bet = 0
+            seat.folded = True
+            seat.cards = []
 
-        # TODO: Check if all active players have bet the same amount
-        # If so, deal a card and move to the next round and update the state
+        # Recount active seated players
+        self.active_players = 0
+        for seat in self.seats:
+            if seat.player:
+                self.active_players += 1
 
+        # Cleaning seats just incase
+        self.current_action_seat = None
+        self.last_action_seat = None
+
+        # Cycle the cycler to the dealer so next hand moves the dealer position
+        temp_player = next(self.seats_cycle)
+
+        while temp_player != self.dealer_seat:
+            temp_player = next(self.seats_cycle)
+
+        self.state = "waiting"
+
+    # Player actions
     def fold(self, username):
         """Fold"""
         if self.state not in ["preflop", "flop", "turn", "river"]:
             raise Exception("Game state is not valid")
 
         # Some type checking
-        if isinstance(self.action_seat, Seat) and isinstance(
-            self.action_seat.player, Player
+        if isinstance(self.current_action_seat, Seat) and isinstance(
+            self.current_action_seat.player, Player
         ):
-            if self.action_seat.player.username != username:
-                raise Exception("Not your turn, shouldn't reach here")
+            if self.current_action_seat.player.username != username:
+                raise Exception("Not your turn!")
             else:
-                self.action_seat.folded = True
+                print(f"{username} folds")  # debugging
+                self.current_action_seat.folded = True
                 self.active_players -= 1
                 self.update()
+        else:
+            raise Exception("Something went wrong")
+
+    def check(self, username):
+        """Checking"""
+        # If the current_bet is 0, then the player can check
+        if self.state not in ["flop", "turn", "river"]:
+            raise Exception("Game state is not valid")
+
+        if isinstance(self.current_action_seat, Seat) and isinstance(
+            self.current_action_seat.player, Player
+        ):
+            if self.current_action_seat.player.username != username:
+                raise Exception("Not your turn!")
+            else:
+                print(f"{username} checks")  # debugging
+                self.update()
+        else:
+            raise Exception("Something went wrong")
+
+    def bet(self, username, amount):
+        if self.state not in ["preflop", "flop", "turn", "river"]:
+            raise Exception("Game state is not valid")
+
+        if isinstance(self.current_action_seat, Seat) and isinstance(
+            self.current_action_seat.player, Player
+        ):
+            if self.current_action_seat.player.username != username:
+                raise Exception("Not your turn!")
+            else:
+                # TODO: Add all-in and side pot logic
+                if amount > self.current_action_seat.chips:
+                    raise Exception("Not enough chips")
+                elif amount < self.current_bet * 2:
+                    raise Exception("Bet must be two times greater than current bet")
+                else:
+                    print(f"{username} bets {amount} chips")  # debugging
+                    self.pay(self.current_action_seat, amount)
+                    self.current_action_seat.last_bet = amount
+                    self.current_bet = amount
+                    self.update()
 
     # Game settings
     # def set_blinds(self, blinds):
@@ -195,30 +349,6 @@ class Game:
 
 #     def fold(self, name):
 #         pass
-
-#     # Game functions
-#     def start_game(self):
-#         if len(self.players) < 2:
-#             raise Exception("Not enough players")
-
-#         if len(self.players) == 2:
-#             self.heads_up = True
-
-#         self.state = "preflop"
-#         self.start_preflop(deal=True)
-
-#     def start_preflop(self, deal=True):
-#         # Deal players
-#         if deal:
-#             self.deck = Deck(_shuffle=True)
-#             for player in self.players:
-#                 player.hand = self.deck.deal(2)
-
-#         # Set action position
-#         if self.heads_up:
-#             self.action_position = self.dealer_position
-#         else:
-#             self.action_position = (self.dealer_position + 3) % len(self.players)
 
 
 # def checkHand(cards):
