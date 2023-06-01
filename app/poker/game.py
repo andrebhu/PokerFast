@@ -80,11 +80,20 @@ class Game:
             if self.seats[i].player == None:
                 self.seats[i].player = p
                 self.seats[i].chips = chips
-                self.active_players += 1
+                # self.active_players += 1
             else:
                 raise Exception("Seat is taken")
         else:
             raise Exception("Player not found")
+        
+
+    def remove_player_from_seat(self, username):
+        """Remove player from seat"""
+        for seat in self.seats:
+            if seat.player and seat.player.username == username:
+                seat.player = None
+                seat.chips = 0
+                # self.active_players -= 1
 
     def get_next_active_seat(self):
         """Get the next active player that is not folded"""
@@ -127,7 +136,6 @@ class Game:
             return
         
 
-
         # Checking end of round
         if self.current_action_seat == self.last_action_seat:
             print("Reached the end of the round!")
@@ -162,6 +170,12 @@ class Game:
 
         if self.state != "waiting":
             raise Exception("Round has already started, should not reach here")
+        
+        # Count active players
+        self.active_players = 0
+        for seat in self.seats:
+            if seat.player:
+                self.active_players += 1
 
         if self.active_players < 2:
             raise Exception("Not enough players")
